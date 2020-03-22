@@ -94,6 +94,8 @@ private:
 
   void scheduleGameQuit() override;
 
+  void switchGamePath(const std::filesystem::path& newGamePath) override;
+
   bool isShareWareVersion() const override {
     return mIsShareWareVersion;
   }
@@ -119,6 +121,7 @@ private:
 
   UserProfile* mpUserProfile;
   data::GameOptions mPreviousOptions;
+  std::filesystem::path mGamePathToSwitchTo;
 
   ui::DukeScriptRunner mScriptRunner;
   loader::ScriptBundle mAllScripts;

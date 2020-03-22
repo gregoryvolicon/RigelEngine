@@ -21,6 +21,8 @@
 #include "options_menu.hpp"
 
 #include "base/warnings.hpp"
+#include "common/game_service_provider.hpp"
+#include "common/user_profile.hpp"
 
 RIGEL_DISABLE_WARNINGS
 #include <imgui.h>
@@ -28,6 +30,7 @@ RIGEL_DISABLE_WARNINGS
 RIGEL_RESTORE_WARNINGS
 
 #include <array>
+#include <filesystem>
 
 
 namespace rigel::ui {
@@ -90,7 +93,23 @@ void fpsLimitUi(data::GameOptions* pOptions) {
 }
 
 
+OptionsMenu::OptionsMenu(
+  UserProfile* pUserProfile,
+  IGameServiceProvider* pServiceProvider,
+  const Type type
+)
+  : mGamePathBrowser(ImGuiFileBrowserFlags_SelectDirectory)
+  , mpUserProfile(pUserProfile)
+  , mpOptions(&pUserProfile->mOptions)
+  , mpServiceProvider(pServiceProvider)
+  , mType(type)
+{
+}
+
+
 void OptionsMenu::updateAndRender(engine::TimeDelta dt) {
+  namespace fs = std::filesystem;
+
   ImGui::SetMouseCursor(ImGuiMouseCursor_Arrow);
 
   const auto& io = ImGui::GetIO();
@@ -161,6 +180,67 @@ void OptionsMenu::updateAndRender(engine::TimeDelta dt) {
     }
 
     ImGui::EndTabBar();
+  }
+
+  if (mType == Type::Main)
+  {
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    if (mpUserProfile->mGamePath) {
+      ImGui::Text(
+        "Current game data: %s version at '%s'",
+        (mpServiceProvider->isShareWareVersion() ? "Shareware" : "Registered"),
+        mpUserProfile->mGamePath->u8string().c_str());
+      ImGui::Spacing();
+    }
+
+    ImGui::Spacing();
+    if (ImGui::Button("Choose Duke Nukem II installation")) {
+      if (mpUserProfile->mGamePath) {
+        mGamePathBrowser.SetPwd(*mpUserProfile->mGamePath);
+      }
+
+      mGamePathBrowser.Open();
+    }
+
+    ImGui::Spacing();
+    ImGui::TextUnformatted(
+R"(NOTE: This might make some of your saved games unusable,
+when switching from a registered version to a shareware version.
+Switching back to a registered version will make them work again.)");
+
+    if (!mShowErrorBox) {
+      mGamePathBrowser.Display();
+    }
+
+    if (mGamePathBrowser.HasSelected())
+    {
+      const auto newGamePath = mGamePathBrowser.GetSelected();
+      if (fs::exists(newGamePath / "NUKEM2.CMP")) {
+        mGamePathBrowser.Close();
+        mpServiceProvider->switchGamePath(newGamePath);
+      } else {
+        // Re-open the browser
+        mGamePathBrowser.Open();
+
+        ImGui::OpenPopup("Error");
+        mShowErrorBox = true;
+      }
+    }
+
+    const auto flags =
+      ImGuiWindowFlags_NoResize |
+      ImGuiWindowFlags_NoMove;
+    if (ImGui::BeginPopupModal("Error", &mShowErrorBox, flags)) {
+      ImGui::TextUnformatted(
+        "No game data (file NUKEM2.CMP) found at chosen path!");
+      if (ImGui::Button("Ok")) {
+        mShowErrorBox = false;
+      }
+      ImGui::EndPopup();
+    }
   }
 
   ImGui::End();

@@ -765,6 +765,12 @@ void Game::applyChangedOptions() {
   }
 
   mPreviousOptions = mpUserProfile->mOptions;
+
+  if (!mGamePathToSwitchTo.empty()) {
+    mpUserProfile->mGamePath = mGamePathToSwitchTo;
+    mpUserProfile->saveToDisk();
+    mGamePathToSwitchTo = {};
+  }
 }
 
 
@@ -814,6 +820,11 @@ void Game::stopMusic() {
 
 void Game::scheduleGameQuit() {
   mIsRunning = false;
+}
+
+
+void Game::switchGamePath(const std::filesystem::path& newGamePath) {
+  mGamePathToSwitchTo = newGamePath;
 }
 
 }
